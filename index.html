@@ -1,0 +1,242 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>X Growth Tracker</title>
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;background:#080b10;color:#f3f4f6;
+  font-family:Arial,sans-serif;padding:20px 14px;
+}
+main{max-width:680px;margin:auto}
+header{padding:18px 0 25px}
+h1{font-size:30px;margin:0 0 10px}
+h1 span{color:#43b7f5}
+p{color:#9ca3af;line-height:1.6}
+.card{
+  background:#121821;border:1px solid #27303d;
+  border-radius:15px;padding:17px;margin-bottom:16px;
+}
+h2{font-size:17px;margin:0 0 15px}
+label{display:block;font-size:13px;color:#aeb8c6;margin-bottom:7px}
+input{
+  width:100%;padding:12px;background:#090e15;
+  border:1px solid #354152;border-radius:9px;
+  color:white;font-size:16px;margin-bottom:14px;
+}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+button{
+  width:100%;padding:14px;border:0;border-radius:10px;
+  background:#43b7f5;color:#06101a;font-weight:bold;
+  font-size:15px;margin-bottom:10px;
+}
+.secondary{background:#252f3d;color:white}
+.result{display:none}
+.stat{
+  background:#0a1018;padding:13px;border-radius:10px;
+  border:1px solid #263140;min-width:0;
+}
+.stat small{color:#9ca3af;display:block;margin-bottom:9px}
+.stat strong{font-size:20px;overflow-wrap:anywhere}
+.up{color:#4ade80}
+.down{color:#fb7185}
+.muted{font-size:12px;color:#8d99aa}
+footer{text-align:center;font-size:12px;color:#758195;padding:18px}
+@media(max-width:360px){
+  .grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <div style="color:#43b7f5;font-weight:bold">X / ANALYTICS</div>
+  <h1>Growth <span>Tracker.</span></h1>
+  <p>Ukur pertumbuhan akun X kamu. Masukkan statistik lama dan terbaru untuk melihat perkembangannya.</p>
+</header>
+
+<section class="card">
+  <h2>01 / Periode pengukuran</h2>
+  <label for="account">Username X (opsional)</label>
+  <input id="account" placeholder="@username">
+  <div class="grid">
+    <div>
+      <label for="start">Tanggal awal</label>
+      <input id="start" type="date">
+    </div>
+    <div>
+      <label for="end">Tanggal akhir</label>
+      <input id="end" type="date">
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>02 / Statistik sebelumnya</h2>
+  <div class="grid">
+    <div><label>Followers</label><input type="number" min="0" id="f0" value="0"></div>
+    <div><label>Views</label><input type="number" min="0" id="v0" value="0"></div>
+    <div><label>Likes</label><input type="number" min="0" id="l0" value="0"></div>
+    <div><label>Reposts</label><input type="number" min="0" id="r0" value="0"></div>
+    <div><label>Replies</label><input type="number" min="0" id="c0" value="0"></div>
+    <div><label>Bookmarks</label><input type="number" min="0" id="b0" value="0"></div>
+  </div>
+  <p class="muted">Masukkan angka pada awal periode yang kamu pilih.</p>
+</section>
+
+<section class="card">
+  <h2>03 / Statistik terbaru</h2>
+  <div class="grid">
+    <div><label>Followers</label><input type="number" min="0" id="f1" value="0"></div>
+    <div><label>Views</label><input type="number" min="0" id="v1" value="0"></div>
+    <div><label>Likes</label><input type="number" min="0" id="l1" value="0"></div>
+    <div><label>Reposts</label><input type="number" min="0" id="r1" value="0"></div>
+    <div><label>Replies</label><input type="number" min="0" id="c1" value="0"></div>
+    <div><label>Bookmarks</label><input type="number" min="0" id="b1" value="0"></div>
+  </div>
+  <p class="muted">Gunakan periode dan cakupan data yang sama untuk perbandingan yang adil.</p>
+</section>
+
+<button onclick="calculate()">Hitung pertumbuhan</button>
+<button class="secondary" onclick="resetForm()">Reset angka</button>
+
+<section class="card result" id="result">
+  <div class="muted">HASIL ANALISIS</div>
+  <h2 id="reportTitle" style="margin-top:8px">Laporan pertumbuhan</h2>
+  <p id="period"></p>
+  <div class="grid" id="summary"></div>
+  <h2 style="margin-top:22px">Perubahan setiap metrik</h2>
+  <div id="details" class="grid"></div>
+  <h2 style="margin-top:22px">Engagement rate</h2>
+  <div class="grid" id="engagement"></div>
+  <p class="muted">
+    Engagement rate di sini dihitung dari (like + repost + reply +
+    bookmark) / views × 100%. Ini rumus estimasi, bukan definisi
+    resmi universal dari X.
+  </p>
+  <button onclick="downloadReport()">Unduh laporan CSV</button>
+</section>
+
+<footer>X Growth Tracker · Personal analytics tool</footer>
+</main>
+
+<script>
+const ids = ["f","v","l","r","c","b"];
+const names = {
+  f:"Followers",v:"Views",l:"Likes",
+  r:"Reposts",c:"Replies",b:"Bookmarks"
+};
+const fmt = n => new Intl.NumberFormat("id-ID").format(n);
+const num = id => {
+  const n = Number(document.getElementById(id).value);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+};
+let lastReport = null;
+
+function calculate(){
+  const old = {}, now = {};
+  ids.forEach(k=>{
+    old[k]=num(k+"0");
+    now[k]=num(k+"1");
+  });
+
+  const start=document.getElementById("start").value;
+  const end=document.getElementById("end").value;
+  if(start && end && end < start){
+    alert("Tanggal akhir harus sama atau setelah tanggal awal.");
+    return;
+  }
+
+  const changes=ids.map(k=>{
+    const delta=now[k]-old[k];
+    const pct=old[k]===0
+      ? (now[k]===0 ? null : Infinity)
+      : delta/old[k]*100;
+    return {key:k,name:names[k],old:old[k],
+      now:now[k],delta,pct};
+  });
+
+  const er0=old.v>0
+    ? (old.l+old.r+old.c+old.b)/old.v*100 : null;
+  const er1=now.v>0
+    ? (now.l+now.r+now.c+now.b)/now.v*100 : null;
+
+  lastReport={
+    account:document.getElementById("account").value,
+    start,end,changes,er0,er1
+  };
+
+  document.getElementById("reportTitle").textContent =
+    "Laporan "+(lastReport.account || "akun X");
+  document.getElementById("period").textContent =
+    (start || "Tanggal awal tidak diisi")+" → "+
+    (end || "Tanggal akhir tidak diisi");
+
+  const totalDelta=changes.reduce((s,x)=>s+x.delta,0);
+  document.getElementById("summary").innerHTML=`
+    <div class="stat"><small>Total perubahan enam metrik</small>
+      <strong class="${totalDelta>=0?'up':'down'}">${totalDelta>0?'+':''}${fmt(totalDelta)}</strong>
+    </div>
+    <div class="stat"><small>Perubahan followers</small>
+      <strong class="${now.f>=old.f?'up':'down'}">${now.f-old.f>0?'+':''}${fmt(now.f-old.f)}</strong>
+    </div>`;
+
+  document.getElementById("details").innerHTML=changes.map(x=>{
+    const pct=x.pct===null?"—":
+      x.pct===Infinity?"Baru dari 0":
+      (x.pct>0?"+":"")+x.pct.toFixed(2)+"%";
+    return `<div class="stat">
+      <small>${x.name}</small>
+      <strong class="${x.delta>=0?'up':'down'}">
+        ${x.delta>0?'+':''}${fmt(x.delta)}
+      </strong>
+      <p class="muted">Awal: ${fmt(x.old)} · Kini: ${fmt(x.now)}</p>
+      <p class="muted">Perubahan: ${pct}</p>
+    </div>`;
+  }).join("");
+
+  document.getElementById("engagement").innerHTML=[
+    {label:"ER periode awal",value:er0},
+    {label:"ER periode terbaru",value:er1}
+  ].map(x=>`<div class="stat"><small>${x.label}</small>
+    <strong>${x.value===null?"Tidak tersedia":x.value.toFixed(2)+"%"}</strong>
+  </div>`).join("");
+
+  document.getElementById("result").style.display="block";
+  document.getElementById("result").scrollIntoView({behavior:"smooth"});
+}
+
+function downloadReport(){
+  if(!lastReport)return;
+  const rows=[
+    ["Metrik","Awal","Terbaru","Perubahan","Persentase"],
+    ...lastReport.changes.map(x=>[
+      x.name,x.old,x.now,x.delta,
+      x.pct===null?"":x.pct===Infinity?"Baru dari 0":x.pct.toFixed(2)+"%"
+    ]),
+    ["Engagement rate awal", "", "", "", 
+      lastReport.er0===null?"":lastReport.er0.toFixed(2)+"%"],
+    ["Engagement rate terbaru", "", "", "",
+      lastReport.er1===null?"":lastReport.er1.toFixed(2)+"%"]
+  ];
+  const csv=rows.map(row=>row.map(v=>
+    '"'+String(v).replace(/"/g,'""')+'"'
+  ).join(",")).join("\r\n");
+  const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download="x-growth-report.csv";a.click();
+  URL.revokeObjectURL(url);
+}
+
+function resetForm(){
+  document.querySelectorAll('input[type="number"]').forEach(el=>el.value=0);
+  document.getElementById("result").style.display="none";
+  lastReport=null;
+}
+</script>
+</body>
+</html>
